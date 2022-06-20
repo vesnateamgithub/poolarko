@@ -1,19 +1,19 @@
 package handlers
 
 import (
-    "database/sql"
+	"database/sql"
+	"log"
 	"net/http"
 	"os"
-	"time"
-	"log"
 	"strconv"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"github.com/vesnateamgithub/poolarko/models"
 	"github.com/vesnateamgithub/poolarko/helpers"
-    "golang.org/x/crypto/bcrypt"
-    "gopkg.in/go-playground/validator.v9"
+	"github.com/vesnateamgithub/poolarko/models"
+	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/go-playground/validator.v9"
 )
 
 type AuthHandler struct {
@@ -33,7 +33,7 @@ type JWTOutput struct {
 var validate *validator.Validate
 
 func init() {
-    validate = validator.New()
+	validate = validator.New()
 }
 
 func NewAuthHandler(db *sql.DB) *AuthHandler {
@@ -44,31 +44,31 @@ func NewAuthHandler(db *sql.DB) *AuthHandler {
 
 func (handler *AuthHandler) RegisterHandler(c *gin.Context) {
 	// check message format
-    var user models.User
+	var user models.User
 	if err := c.ShouldBindJSON(&user); err != nil {
 		helpers.RespondWithError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-    // validate data
-    if err := validate.Struct(user); err != nil {
+	// validate data
+	if err := validate.Struct(user); err != nil {
 		helpers.RespondWithError(c, http.StatusBadRequest, err.Error())
-        return
-    }
+		return
+	}
 
-    pwd := []byte(user.Password)
-    hash, err := bcrypt.GenerateFromPassword(pwd, bcrypt.MinCost)
-    if err != nil {
+	pwd := []byte(user.Password)
+	hash, err := bcrypt.GenerateFromPassword(pwd, bcrypt.MinCost)
+	if err != nil {
 		helpers.RespondWithError(c, http.StatusBadRequest, err.Error())
-    }
-    hashPwd := string(hash);
+	}
+	hashPwd := string(hash)
 
-    // update database
-    _, err = handler.db.Exec("INSERT INTO users (email, name, password) VALUES (?, ?, ?)", user.Email, user.Name, hashPwd)
-    if err != nil {
+	// update database
+	_, err = handler.db.Exec("INSERT INTO users (email, name, password) VALUES (?, ?, ?)", user.Email, user.Name, hashPwd)
+	if err != nil {
 		helpers.RespondWithError(c, http.StatusUnprocessableEntity, "Error creating user.")
-        return
-    }
+		return
+	}
 
 	helpers.RespondWithSuccess(c, http.StatusOK, "User created.")
 }
@@ -81,28 +81,28 @@ func (handler *AuthHandler) SignInHandler(c *gin.Context) {
 		return
 	}
 
-    // find the user pwd in the database
-    var hashPwd string
-    row := handler.db.QueryRow("SELECT password FROM users WHERE email = ?", user.Email)
-    if err := row.Scan(&hashPwd); err != nil {
+	// find the user pwd in the database
+	var hashPwd string
+	row := handler.db.QueryRow("SELECT password FROM users WHERE email = ?", user.Email)
+	if err := row.Scan(&hashPwd); err != nil {
 		helpers.RespondWithError(c, http.StatusBadRequest, "Invalid email or password.")
 		return
-    }
+	}
 
-    byteHash := []byte(hashPwd)
-    pwd := []byte(user.Password)
-    if err := bcrypt.CompareHashAndPassword(byteHash, pwd); err != nil {
+	byteHash := []byte(hashPwd)
+	pwd := []byte(user.Password)
+	if err := bcrypt.CompareHashAndPassword(byteHash, pwd); err != nil {
 		helpers.RespondWithError(c, http.StatusBadRequest, "Invalid email or password.")
 		return
-    }
+	}
 
-    expMinutes, err := strconv.ParseInt(os.Getenv("JWT_EXPIRATION"), 10, 64)
-    if err != nil {
-        log.Println("SignInHandler: Incorrect JWT_EXPIRATION, default will be used")
-        expMinutes = 10
-    }
+	expMinutes, err := strconv.ParseInt(os.Getenv("JWT_EXPIRATION"), 10, 64)
+	if err != nil {
+		log.Println("SignInHandler: Incorrect JWT_EXPIRATION, default will be used")
+		expMinutes = 10
+	}
 
-    expirationTime := time.Now().Add(time.Duration(expMinutes) * time.Minute)
+	expirationTime := time.Now().Add(time.Duration(expMinutes) * time.Minute)
 	claims := &Claims{
 		Username: user.Email,
 		StandardClaims: jwt.StandardClaims{
@@ -110,7 +110,7 @@ func (handler *AuthHandler) SignInHandler(c *gin.Context) {
 		},
 	}
 
-    log.Printf("SignInHandler3:\n")
+	log.Printf("SignInHandler3:\n")
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
